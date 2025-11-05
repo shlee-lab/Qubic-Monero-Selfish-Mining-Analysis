@@ -1,6 +1,6 @@
 ## Inside Qubic’s Selfish Mining in Monero
 
-Analyzing Qubic’s behavior and its real impact on Monero’s network
+Analyzing Qubic’s behavior and its impact on Monero’s network
 
 ### Overview
 
