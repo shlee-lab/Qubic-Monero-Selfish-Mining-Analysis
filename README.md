@@ -14,7 +14,7 @@ In selfish mining, a miner keeps newly found blocks private for a short time to 
 
 This strategy can increase a miner’s rewards if it controls a large enough portion of the total hash rate and if other miners prefer its chain.
 
-![Selfish Mining Illustration](figs/selfish_mining.png)
+![Selfish Mining Illustration](fig/selfish_mining.png)
 
 ## Main Findings
 
