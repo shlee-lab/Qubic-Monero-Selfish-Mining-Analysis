@@ -40,7 +40,9 @@ While some orphan and fork events coincided with Qubic’s activity, there was n
 ### Key Insights
 
 Selfish mining was detectable but not profitable.
+
 Qubic’s hash-rate advantage was temporary and did not result in network takeover.
+
 The Monero network remained stable overall, showing the limits of selfish mining in a real-world environment.
 
 ### 🗂️ Data Collection
@@ -48,6 +50,7 @@ The Monero network remained stable overall, showing the limits of selfish mining
 The data were collected from:
 
 A Monero full node running in pruning mode
+
 A miner connected directly to Qubic’s public pool
 
 Collection period: August–October 2025
