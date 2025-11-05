@@ -98,7 +98,6 @@ def create_visualizations(res):
     ax2.set_ylabel('Total Orphans in Run', fontsize=14)
     ax2.grid(True, alpha=0.3)
 
-    # x/y축 정수 눈금
     if len(res) > 0:
         max_x = int(res['length_qubic_run'].max())
         max_y = int(res['total_orphans_on_run'].max())
@@ -106,7 +105,7 @@ def create_visualizations(res):
         ax2.set_yticks(range(0, max_y + 1))
 
     plt.tight_layout()
-    plt.savefig('fig/fig4.pdf', bbox_inches='tight')
+    plt.savefig('fig/orphan_run_length.pdf', bbox_inches='tight')
     plt.close(fig)
 
 

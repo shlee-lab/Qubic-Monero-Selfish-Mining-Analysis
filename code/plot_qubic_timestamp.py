@@ -128,7 +128,7 @@ def analyze_qubic_timestamp_manipulation():
     plt.tight_layout()
     
     # Save graph
-    plt.savefig('fig/timestamp.pdf', dpi=300, bbox_inches='tight')
+    plt.savefig('fig/qubic_timestamp.pdf', dpi=300, bbox_inches='tight')
     print("timestamp.pdf saved.")
     
     # Print analysis summary

@@ -255,7 +255,7 @@ def create_weekly_dual_axis_chart(weekly_df):
 					fontsize=10, fontweight='bold')
 	
 	plt.tight_layout()
-	plt.savefig('fig/fig5.pdf', dpi=300, bbox_inches='tight')
+	plt.savefig('fig/gamma.pdf', dpi=300, bbox_inches='tight')
 
 
 def main():

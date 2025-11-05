@@ -143,7 +143,7 @@ def analyze_qubic_mining():
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45)
 
     fig1.tight_layout()
-    fig1.savefig('fig/fig1.pdf', dpi=300, bbox_inches='tight')
+    fig1.savefig('fig/hashrate.pdf', dpi=300, bbox_inches='tight')
     plt.close(fig1)
 
     fig2, ax2 = plt.subplots(1, 1, figsize=(15, 6))
@@ -176,7 +176,7 @@ def analyze_qubic_mining():
     plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
 
     fig2.tight_layout()
-    fig2.savefig('fig/fig2.pdf', dpi=300, bbox_inches='tight')
+    fig2.savefig('fig/block_production.pdf', dpi=300, bbox_inches='tight')
     plt.close(fig2)
 
     print("\n=== Analysis Results Summary ===")

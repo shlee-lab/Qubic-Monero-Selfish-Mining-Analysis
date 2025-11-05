@@ -118,8 +118,8 @@ def main():
 
     plt.tight_layout()
 
-    plt.savefig('fig/fig3.pdf', bbox_inches='tight')
-    print("Saved 'fig3.pdf'.")
+    plt.savefig('fig/orphan_length.pdf', bbox_inches='tight')
+    print("Saved 'orphan_length.pdf'.")
 
 
 if __name__ == '__main__':
