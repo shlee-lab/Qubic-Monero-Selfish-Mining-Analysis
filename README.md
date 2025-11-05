@@ -32,11 +32,10 @@ While some orphan and fork events coincided with Qubic’s activity, there was n
 ### Repository Structure
 | Folder     | Description                                                                                  |
 | ---------- | -------------------------------------------------------------------------------------------- |
-| `data/`    | Raw and processed blockchain data (`blocks.csv`, `orphan.csv`, `jobs.csv`, etc.)             |
-| `scripts/` | Python scripts for data parsing and plotting (`count_qubic.py`, `daily_alpha_plot.py`, etc.) |
-| `figs/`    | Generated figures such as `gamma.pdf` and `alpha_trend.pdf`                                  |
-| `sec/`     | LaTeX sources for each section of the paper                                                  |
-| `results/` | Output files summarizing Qubic’s hash-rate share and fork activity                           |
+| `data/`    | Raw and processed blockchain data           |
+| `scripts/` | Python scripts for data parsing and plotting |
+| `figs/`    | Generated figures be script code                                 |
+| `visualizer/` | Contains the source code for the website that visualizes Qubic mining data   |
 
 ### Key Insights
 
