@@ -30,19 +30,18 @@ Network impact:
 While some orphan and fork events coincided with Qubic’s activity, there was no lasting disruption to the Monero network.
 
 ### Repository Structure
-Folder	Description
-data/	Raw and processed blockchain data (blocks.csv, orphan.csv, jobs.csv, etc.)
-scripts/	Python scripts for data parsing and plotting (count_qubic.py, daily_alpha_plot.py, etc.)
-figs/	Generated figures such as gamma.pdf and alpha_trend.pdf
-sec/	LaTeX sources for each section of the paper
-results/	Output files summarizing Qubic’s hash-rate share and fork activity
+| Folder     | Description                                                                                  |
+| ---------- | -------------------------------------------------------------------------------------------- |
+| `data/`    | Raw and processed blockchain data (`blocks.csv`, `orphan.csv`, `jobs.csv`, etc.)             |
+| `scripts/` | Python scripts for data parsing and plotting (`count_qubic.py`, `daily_alpha_plot.py`, etc.) |
+| `figs/`    | Generated figures such as `gamma.pdf` and `alpha_trend.pdf`                                  |
+| `sec/`     | LaTeX sources for each section of the paper                                                  |
+| `results/` | Output files summarizing Qubic’s hash-rate share and fork activity                           |
 
 ### Key Insights
 
 Selfish mining was detectable but not profitable.
-
 Qubic’s hash-rate advantage was temporary and did not result in network takeover.
-
 The Monero network remained stable overall, showing the limits of selfish mining in a real-world environment.
 
 ### 🗂️ Data Collection
@@ -50,7 +49,6 @@ The Monero network remained stable overall, showing the limits of selfish mining
 The data were collected from:
 
 A Monero full node running in pruning mode
-
 A miner connected directly to Qubic’s public pool
 
 Collection period: August–October 2025
