@@ -1,17 +1,40 @@
+import os
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from datetime import datetime
 import numpy as np
+from matplotlib.ticker import ScalarFormatter
 
 # Font settings for better display
 plt.rcParams['font.family'] = 'DejaVu Sans'
 plt.rcParams['axes.unicode_minus'] = False
 
+# spacing constants
+LABEL_PAD = 10   # distance between axis and axis label
+TICK_PAD  = 6    # distance between ticks and axis
+
+# difficulty 0x-hex -> int
+def hex_to_int(x):
+    if pd.isna(x):
+        return np.nan
+    s = str(x).strip()
+    if s.startswith(('0x', '0X')):
+        s = s[2:]
+    if s == '':
+        return np.nan
+    try:
+        return int(s, 16)
+    except Exception:
+        return np.nan
+
 def analyze_qubic_mining():
     """
     Analyze Qubic's Monero mining power share on a daily basis and generate graphs.
     """
+    # Ensure output dir
+    os.makedirs('fig', exist_ok=True)
+
     # Load CSV file
     print("Loading data...")
     df = pd.read_csv('data/all_blocks.csv')
@@ -25,6 +48,14 @@ def analyze_qubic_mining():
     print(f"Total blocks: {len(df)}")
     print(f"Data period: {df['timestamp'].min()} ~ {df['timestamp'].max()}")
 
+    # difficulty: 0x-hex -> int -> scale
+    df['difficulty_hex'] = df['difficulty'].astype(str)
+    df['difficulty'] = df['difficulty_hex'].apply(hex_to_int)
+
+    # scale for readability (tune if needed)
+    DIFF_SCALE = 1e12
+    df['difficulty_scaled'] = df['difficulty'] / DIFF_SCALE
+
     # Check Qubic-mined blocks and orphan blocks
     qubic_blocks = df[df['is_qubic'] == True]
     orphan_blocks = df[df['is_orphan'] == True]
@@ -34,12 +65,12 @@ def analyze_qubic_mining():
     print(f"Orphan blocks: {len(orphan_blocks)}")
     print(f"Qubic-mined orphan blocks: {len(qubic_orphan_blocks)}")
 
-    # Calculate overall statistics
+    # Overall statistics
     total_blocks_overall = len(df)
     qubic_blocks_overall = len(df[df['is_qubic'] == True])
     qubic_power_overall = (qubic_blocks_overall / total_blocks_overall) * 100 if total_blocks_overall > 0 else 0
 
-    # Calculate daily statistics
+    # Daily statistics
     daily_stats = []
     for date in df['date'].unique():
         date_data = df[df['date'] == date]
@@ -64,7 +95,7 @@ def analyze_qubic_mining():
             'qubic_power_ratio': qubic_power_ratio
         })
 
-    # Calculate weekly statistics (W-WED)
+    # Weekly statistics (W-WED)
     weekly_stats = []
     for week in df['week'].unique():
         week_data = df[df['week'] == week]
@@ -78,12 +109,12 @@ def analyze_qubic_mining():
             'qubic_power_ratio': qubic_power_ratio
         })
 
-    # Calculate hourly statistics
+    # Hourly statistics
     hourly_stats = []
     for hour in df['hour'].unique():
         hour_data = df[df['hour'] == hour]
         total_blocks = len(hour_data)
-        qubic_blocks_count = len(hour_data[hourly_data['is_qubic'] == True]) if (hourly_data := hour_data) is not None else 0
+        qubic_blocks_count = len(hour_data[hour_data['is_qubic'] == True])
         qubic_power_ratio = (qubic_blocks_count / total_blocks) * 100 if total_blocks > 0 else 0
         hourly_stats.append({
             'hour': hour,
@@ -92,9 +123,21 @@ def analyze_qubic_mining():
             'qubic_power_ratio': qubic_power_ratio
         })
 
-    # Convert to DataFrames
+    # Daily average difficulty (scaled)
+    daily_difficulty = (
+        df.groupby(df['timestamp'].dt.date)['difficulty_scaled']
+          .mean()
+          .rename('avg_difficulty_scaled')
+          .reset_index()
+          .rename(columns={'timestamp': 'date'})
+    )
+
+    # To DataFrames
     daily_df = pd.DataFrame(daily_stats)
     daily_df['date'] = pd.to_datetime(daily_df['date'])
+
+    daily_difficulty['date'] = pd.to_datetime(daily_difficulty['date'])
+    daily_df = daily_df.merge(daily_difficulty, on='date', how='left')
 
     weekly_df = pd.DataFrame(weekly_stats)
     weekly_df['week_end'] = weekly_df['week'].dt.end_time
@@ -102,7 +145,7 @@ def analyze_qubic_mining():
     hourly_df = pd.DataFrame(hourly_stats)
     hourly_df['hour'] = pd.to_datetime(hourly_df['hour'])
 
-    # x-axis formatting logic (공유)
+    # x-axis formatting
     total_days = len(daily_df)
     if total_days <= 30:
         interval = 3
@@ -117,6 +160,7 @@ def analyze_qubic_mining():
     date_max = daily_df['date'].max()
     padding = pd.Timedelta(days=2)
 
+    # ===== Figure 1: Power share lines =====
     fig1, ax1 = plt.subplots(1, 1, figsize=(15, 6))
 
     ax1.plot(daily_df['date'], daily_df['qubic_power_ratio'],
@@ -132,10 +176,11 @@ def analyze_qubic_mining():
     ax1.axhline(y=qubic_power_overall, color='black', linestyle='--', linewidth=2,
                 label=f'Overall Average ({qubic_power_overall:.2f}%)')
 
-    ax1.set_xlabel('Date', fontsize=14)
-    ax1.set_ylabel('Share (%)', fontsize=14)
+    ax1.set_xlabel('Date', fontsize=14, labelpad=LABEL_PAD)
+    ax1.set_ylabel('Share (%)', fontsize=14, labelpad=LABEL_PAD)
+    ax1.tick_params(axis='both', pad=TICK_PAD)
     ax1.grid(True, alpha=0.3)
-    ax1.legend()
+    ax1.legend(loc='upper right')
 
     ax1.set_xlim(date_min - padding, date_max + padding)
     ax1.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
@@ -146,6 +191,7 @@ def analyze_qubic_mining():
     fig1.savefig('fig/hashrate.pdf', dpi=300, bbox_inches='tight')
     plt.close(fig1)
 
+    # ===== Figure 2: Stacked bars + daily avg difficulty line (twin y-axis) =====
     fig2, ax2 = plt.subplots(1, 1, figsize=(15, 6))
 
     non_qubic_orphan_blocks = daily_df['non_qubic_orphan_blocks']
@@ -154,26 +200,38 @@ def analyze_qubic_mining():
     non_qubic_regular_blocks = daily_df['non_qubic_regular_blocks']
 
     ax2.bar(daily_df['date'], non_qubic_orphan_blocks,
-            alpha=0.6, label='Non-Qubic Orphan Blocks', color='orange')
+            alpha=0.9, label='Non-Qubic Orphan Blocks', color="#f29f0f")
     ax2.bar(daily_df['date'], qubic_orphan_blocks,
             bottom=non_qubic_orphan_blocks,
-            alpha=0.9, label='Qubic Orphan Blocks', color='darkred')
+            alpha=0.9, label='Qubic Orphan Blocks', color="#568a04")
     ax2.bar(daily_df['date'], qubic_regular_blocks,
             bottom=non_qubic_orphan_blocks + qubic_orphan_blocks,
-            alpha=0.8, label='Qubic Regular Blocks', color='red')
+            alpha=0.8, label='Qubic Regular Blocks', color="#3bb2c2")
     ax2.bar(daily_df['date'], non_qubic_regular_blocks,
             bottom=non_qubic_orphan_blocks + qubic_orphan_blocks + qubic_regular_blocks,
             alpha=0.7, label='Non-Qubic Regular Blocks', color='lightblue')
 
-    ax2.set_xlabel('Date', fontsize=14)
-    ax2.set_ylabel('Number of Blocks', fontsize=14)
-    ax2.legend()
+    ax2.set_xlabel('Date', fontsize=14, labelpad=LABEL_PAD)
+    ax2.set_ylabel('Number of Blocks', fontsize=14, labelpad=LABEL_PAD)
+    ax2.tick_params(axis='both', pad=TICK_PAD)
     ax2.grid(True, alpha=0.3)
 
     ax2.set_xlim(date_min - padding, date_max + padding)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter('%Y-%m-%d'))
     ax2.xaxis.set_major_locator(mdates.WeekdayLocator(byweekday=mdates.WEDNESDAY, interval=1))
     plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
+
+    ax2b = ax2.twinx()
+    ax2b.plot(daily_df['date'], daily_df['avg_difficulty_scaled'],
+              marker='o', linewidth=1.8, color='red', label='Daily Avg Difficulty')
+    ax2b.set_ylabel(f'Avg Difficulty (daily)', fontsize=14, labelpad=LABEL_PAD + 2)
+    ax2b.tick_params(axis='both', pad=TICK_PAD)
+    ax2b.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
+    ax2b.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+
+    handles1, labels1 = ax2.get_legend_handles_labels()
+    handles2, labels2 = ax2b.get_legend_handles_labels()
+    ax2.legend(handles1 + handles2, labels1 + labels2, loc='upper right')
 
     fig2.tight_layout()
     fig2.savefig('fig/block_production.pdf', dpi=300, bbox_inches='tight')
