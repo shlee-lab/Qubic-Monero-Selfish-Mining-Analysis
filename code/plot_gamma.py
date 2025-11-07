@@ -222,7 +222,7 @@ def calculate_weekly_gamma_with_0_prime_estimation(states_df, blocks_df):
 
 def create_weekly_dual_axis_chart(weekly_df):
 	"""Create weekly chart with dual y-axis showing gamma and 0' state counts"""
-	fig, ax1 = plt.subplots(figsize=(10, 10))
+	fig, ax1 = plt.subplots(figsize=(10, 6))
 	
 	# Convert week to string for better x-axis display
 	weekly_df['week_str'] = weekly_df['week'].astype(str)
@@ -230,14 +230,14 @@ def create_weekly_dual_axis_chart(weekly_df):
 	# Create bars for 0' state counts (left y-axis)
 	bars = ax1.bar(weekly_df['week_str'], weekly_df['estimated_0_prime_count'], 
 				   alpha=0.7, color='lightblue', edgecolor='navy', linewidth=1, label='Estimated 0\' State Count')
-	ax1.set_xlabel('Week', fontsize=14)
-	ax1.set_ylabel('Estimated 0\' State Count', fontsize=14)
+	ax1.set_xlabel('Week', fontsize=18)
+	ax1.set_ylabel('Estimated 0\' State Count', fontsize=18)
 	ax1.tick_params(axis='x', rotation=45)
 	
 	# Create line for gamma values (right y-axis)
 	ax2 = ax1.twinx()
 	line = ax2.plot(weekly_df['week_str'], weekly_df['gamma'], 'ro-', linewidth=2, markersize=6, label='γ Rate')
-	ax2.set_ylabel('γ Rate', fontsize=14)
+	ax2.set_ylabel('γ Rate', fontsize=18)
 	ax2.set_ylim(-0.01, 0.2)  # Set y-axis range with slight offset from 0 for better visibility
 
 	ax1.grid(True, alpha=0.3)
@@ -245,7 +245,7 @@ def create_weekly_dual_axis_chart(weekly_df):
 	# Add legend in upper right corner
 	lines1, labels1 = ax1.get_legend_handles_labels()
 	lines2, labels2 = ax2.get_legend_handles_labels()
-	ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=12)
+	ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right', fontsize=15)
 	
 	# Add value labels on gamma line only (with larger font)
 	for i, (week, gamma) in enumerate(zip(weekly_df['week_str'], weekly_df['gamma'])):

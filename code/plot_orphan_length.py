@@ -55,12 +55,12 @@ def method_dodged_log(ax, weekly: pd.DataFrame):
     width = 0.12
 
     styles = [
-        {"face": "white",    "hatch": ""},     
-        {"face": "#f1eef6",  "hatch": ""},     
-        {"face": "#c1c9e0",    "hatch": ""},   
-        {"face": "#85a7cd",  "hatch": ""},    
-        {"face": "#558abc",    "hatch": ""},  
-        {"face": "#32578a",    "hatch": ""},   
+        {"face": "white",    "hatch": ""},      # White
+        {"face": "#f5f5f5",  "hatch": ""},      # Very light gray
+        {"face": "#d0d0d0",  "hatch": ""},      # Light gray
+        {"face": "#a0a0a0",  "hatch": ""},      # Medium gray
+        {"face": "#707070",  "hatch": ""},      # Dark gray
+        {"face": "#404040",  "hatch": ""},      # Very dark gray
     ]
 
     legend_handles = []
@@ -93,7 +93,7 @@ def method_dodged_log(ax, weekly: pd.DataFrame):
 
     ax.set_yscale('log')
     ax.set_ylabel("Number of Orphan Forks (log scale)", fontsize=14)
-    ax.set_xlabel("Week", fontsize=14)
+    ax.set_xlabel("Date", fontsize=14)
     ax.set_xticks(x)
     ax.set_xticklabels([pd.to_datetime(w).strftime('%Y-%m-%d') for w in weeks],
                        rotation=40, ha='right')

@@ -199,17 +199,18 @@ def analyze_qubic_mining():
     qubic_regular_blocks = daily_df['qubic_blocks'] - daily_df['qubic_orphan_blocks']
     non_qubic_regular_blocks = daily_df['non_qubic_regular_blocks']
 
-    ax2.bar(daily_df['date'], non_qubic_orphan_blocks,
-            alpha=0.9, label='Non-Qubic Orphan Blocks', color="#f29f0f")
-    ax2.bar(daily_df['date'], qubic_orphan_blocks,
-            bottom=non_qubic_orphan_blocks,
-            alpha=0.9, label='Qubic Orphan Blocks', color="#568a04")
-    ax2.bar(daily_df['date'], qubic_regular_blocks,
-            bottom=non_qubic_orphan_blocks + qubic_orphan_blocks,
-            alpha=0.8, label='Qubic Regular Blocks', color="#3bb2c2")
+    # Stack order: Non-Qubic Regular (bottom) -> Non-Qubic Orphan -> Qubic Regular -> Qubic Orphan (top)
     ax2.bar(daily_df['date'], non_qubic_regular_blocks,
-            bottom=non_qubic_orphan_blocks + qubic_orphan_blocks + qubic_regular_blocks,
-            alpha=0.7, label='Non-Qubic Regular Blocks', color='lightblue')
+            alpha=0.9, label='Non-Qubic Regular Blocks', color='#E0E0E0', edgecolor='black', linewidth=0.5)
+    ax2.bar(daily_df['date'], non_qubic_orphan_blocks,
+            bottom=non_qubic_regular_blocks,
+            alpha=0.9, label='Non-Qubic Orphan Blocks', color='#9E9E9E', edgecolor='black', linewidth=0.5)
+    ax2.bar(daily_df['date'], qubic_regular_blocks,
+            bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks,
+            alpha=0.9, label='Qubic Regular Blocks', color='#FF9800', edgecolor='black', linewidth=0.5)
+    ax2.bar(daily_df['date'], qubic_orphan_blocks,
+            bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks + qubic_regular_blocks,
+            alpha=0.9, label='Qubic Orphan Blocks', color='#F44336', edgecolor='black', linewidth=0.5)
 
     ax2.set_xlabel('Date', fontsize=14, labelpad=LABEL_PAD)
     ax2.set_ylabel('Number of Blocks', fontsize=14, labelpad=LABEL_PAD)
@@ -222,16 +223,36 @@ def analyze_qubic_mining():
     plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
 
     ax2b = ax2.twinx()
+    # Daily Avg Difficulty line color options (uncomment one):
+    # Recommended options for better visibility with current bar colors (gray, orange, red):
+    # Option 1: Bright blue (highly visible, distinct from bars)
+    # difficulty_color = '#1976D2'  # Bright blue
+    # Option 2: Deep purple (very distinctive, stands out)
+    # difficulty_color = '#7B1FA2'  # Deep purple
+    # Option 3: Teal/Cyan (modern, clear contrast)
+    # difficulty_color = '#00897B'  # Teal
+    # Option 4: Dark magenta (vibrant, distinct)
+    # difficulty_color = '#C2185B'  # Dark magenta
+    # Option 5: Navy blue (professional, strong contrast)
+    # difficulty_color = '#1565C0'  # Navy blue
+    # Option 6: Dark green (current - less visible)
+    # difficulty_color = '#2E7D32'  # Dark green
+    # Option 7: Royal blue (bright and clear)
+    difficulty_color = '#007FFF'  # Royal blue
+    # Option 8: Indigo (distinctive purple-blue)
+    # difficulty_color = '#3F51B5'  # Indigo
+    
     ax2b.plot(daily_df['date'], daily_df['avg_difficulty_scaled'],
-              marker='o', linewidth=1.8, color='red', label='Daily Avg Difficulty')
-    ax2b.set_ylabel(f'Avg Difficulty (daily)', fontsize=14, labelpad=LABEL_PAD + 2)
+              marker='o', linewidth=1.8, color=difficulty_color, label='Daily Avg Difficulty')
+    ax2b.set_ylabel(f'Avg Difficulty (daily) / 10¹²', fontsize=14, labelpad=LABEL_PAD + 2)
     ax2b.tick_params(axis='both', pad=TICK_PAD)
-    ax2b.yaxis.set_major_formatter(ScalarFormatter(useMathText=True))
-    ax2b.ticklabel_format(style='sci', axis='y', scilimits=(0, 0))
+    # Remove scientific notation since we already have / 10¹² in the label
+    ax2b.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{x:.1f}'))
 
     handles1, labels1 = ax2.get_legend_handles_labels()
     handles2, labels2 = ax2b.get_legend_handles_labels()
-    ax2.legend(handles1 + handles2, labels1 + labels2, loc='upper right')
+    # Legend placement: lower left
+    ax2.legend(handles1 + handles2, labels1 + labels2, loc='lower left')
 
     fig2.tight_layout()
     fig2.savefig('fig/block_production.pdf', dpi=300, bbox_inches='tight')

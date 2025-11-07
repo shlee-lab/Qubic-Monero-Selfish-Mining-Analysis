@@ -115,14 +115,14 @@ def analyze_qubic_timestamp_manipulation():
     print(f"Analyzed {len(results_df)} Qubic orphan blocks")
     
     # Create visualization: Only timestamp latency summary
-    fig, ax1 = plt.subplots(1, 1, figsize=(12, 4.8))
+    fig, ax1 = plt.subplots(1, 1, figsize=(8, 6))
     
     # Time difference distribution (latency summary)
     ax1.hist(results_df['time_diff_seconds'], bins=50, alpha=0.7, color='red', edgecolor='black')
     ax1.axvline(x=0, color='black', linestyle='--', alpha=0.7, label='Same timestamp')
-    ax1.set_xlabel('Time Difference (seconds)', fontsize=14)
-    ax1.set_ylabel('Frequency', fontsize=14)
-    ax1.legend()
+    ax1.set_xlabel('Time Difference (seconds)', fontsize=16)
+    ax1.set_ylabel('Frequency', fontsize=16)
+    ax1.legend(fontsize=16)
     ax1.grid(True, alpha=0.3)
     
     plt.tight_layout()
