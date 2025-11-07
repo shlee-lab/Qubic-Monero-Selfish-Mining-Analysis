@@ -223,24 +223,7 @@ def analyze_qubic_mining():
     plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
 
     ax2b = ax2.twinx()
-    # Daily Avg Difficulty line color options (uncomment one):
-    # Recommended options for better visibility with current bar colors (gray, orange, red):
-    # Option 1: Bright blue (highly visible, distinct from bars)
-    # difficulty_color = '#1976D2'  # Bright blue
-    # Option 2: Deep purple (very distinctive, stands out)
-    # difficulty_color = '#7B1FA2'  # Deep purple
-    # Option 3: Teal/Cyan (modern, clear contrast)
-    # difficulty_color = '#00897B'  # Teal
-    # Option 4: Dark magenta (vibrant, distinct)
-    # difficulty_color = '#C2185B'  # Dark magenta
-    # Option 5: Navy blue (professional, strong contrast)
-    # difficulty_color = '#1565C0'  # Navy blue
-    # Option 6: Dark green (current - less visible)
-    # difficulty_color = '#2E7D32'  # Dark green
-    # Option 7: Royal blue (bright and clear)
     difficulty_color = '#007FFF'  # Royal blue
-    # Option 8: Indigo (distinctive purple-blue)
-    # difficulty_color = '#3F51B5'  # Indigo
     
     ax2b.plot(daily_df['date'], daily_df['avg_difficulty_scaled'],
               marker='o', linewidth=1.8, color=difficulty_color, label='Daily Avg Difficulty')
