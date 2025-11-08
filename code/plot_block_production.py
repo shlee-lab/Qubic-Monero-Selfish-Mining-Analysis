@@ -169,9 +169,8 @@ def analyze_qubic_mining():
     ax1.plot(weekly_df['week_end'], weekly_df['qubic_power_ratio'],
              marker='s', linewidth=2, markersize=6, color='blue', label='Weekly Mining Power Share')
 
-    hourly_sample = hourly_df[hourly_df.index % 6 == 0]
-    ax1.plot(hourly_sample['hour'], hourly_sample['qubic_power_ratio'],
-             marker='^', linewidth=1, markersize=3, color='green', alpha=0.7, label='Hourly Mining Power Share')
+    ax1.plot(hourly_df['hour'], hourly_df['qubic_power_ratio'],
+             linewidth=1, color='green', alpha=0.7, label='Hourly Mining Power Share')
 
     ax1.axhline(y=qubic_power_overall, color='black', linestyle='--', linewidth=2,
                 label=f'Overall Average ({qubic_power_overall:.2f}%)')
@@ -188,7 +187,7 @@ def analyze_qubic_mining():
     plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45)
 
     fig1.tight_layout()
-    fig1.savefig('fig/hashrate.pdf', dpi=300, bbox_inches='tight')
+    fig1.savefig('fig/mining_share.pdf', dpi=300, bbox_inches='tight')
     plt.close(fig1)
 
     # ===== Figure 2: Stacked bars + daily avg difficulty line (twin y-axis) =====
