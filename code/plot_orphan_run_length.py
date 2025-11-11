@@ -115,55 +115,51 @@ def plot_scatter(res: pd.DataFrame, fig_path: str):
     plt.savefig(fig_path, bbox_inches="tight")
     plt.close(fig)
 
-def export_selfish_orphan_height_aligned(main: pd.DataFrame, runs: pd.DataFrame, prev_ts: pd.Series,
-                                         orphan_q: pd.DataFrame, out_path: str):
-    qubic_main = main.loc[main["is_qubic"], ["height","timestamp"]].rename(
-        columns={"height":"selfish_mining_height","timestamp":"selfish_mining_timestamp"}
-    ).reset_index(drop=True)
+def export_run_summary(runs: pd.DataFrame,
+                       prev_ts: pd.Series,
+                       selfish_len: pd.Series,
+                       out_path: str):
+    """
+    CSV 스키마:
+    start_height, end_height, length_qubic_run,
+    total_orphans_on_run, max_consecutive_orphan_heights,
+    start_ts, end_ts
+    """
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
 
-    if qubic_main.empty or runs.empty:
-        os.makedirs(os.path.dirname(out_path), exist_ok=True)
-        pd.DataFrame(columns=["selfish_mining_height","selfish_mining_timestamp","orphan_height","orphan_timestamp"]).to_csv(out_path, index=False)
+    if runs.empty:
+        cols = ["start_height","end_height","length_qubic_run",
+                "total_orphans_on_run","max_consecutive_orphan_heights",
+                "start_ts","end_ts"]
+        pd.DataFrame(columns=cols).to_csv(out_path, index=False)
         return
 
-    q_ts = qubic_main["selfish_mining_timestamp"].to_numpy("datetime64[ns]")
-    q_h  = qubic_main["selfish_mining_height"].to_numpy(np.int64)
+    df_out = pd.DataFrame({
+        "start_height": runs["run_first_height"].to_numpy(np.int64),
+        "end_height": runs["run_last_height"].to_numpy(np.int64),
+        "length_qubic_run": pd.to_numeric(selfish_len, errors="coerce").astype("Int64"),
+        "total_orphans_on_run": runs["orphan_run_length"].to_numpy(np.int64),
+        "max_consecutive_orphan_heights": runs["orphan_run_length"].to_numpy(np.int64),
+        "start_ts": prev_ts.reset_index(drop=True),
+        "end_ts": runs["last_orphan_ts"].reset_index(drop=True)
+    })
 
-    idx_all = []
-    for i in range(len(runs)):
-        left = prev_ts.iloc[i]
-        right = runs.loc[i, "last_orphan_ts"]
-        li = np.searchsorted(q_ts, np.datetime64(left) if pd.notna(left) else np.datetime64("1677-09-21T00:12:43.145224192"), side="right")
-        ri = np.searchsorted(q_ts, np.datetime64(right), side="right")
-        if ri > li:
-            idx_all.append(np.arange(li, ri))
+    # 정렬/정리
+    df_out = df_out.sort_values(["start_height", "end_height"]).reset_index(drop=True)
+    df_out.to_csv(out_path, index=False)
 
-    if len(idx_all):
-        idx_all = np.concatenate(idx_all)
-    else:
-        idx_all = np.array([], dtype=np.int64)
-
-    selfish_df = qubic_main.iloc[idx_all].copy()
-    selfish_df = selfish_df.drop_duplicates(subset=["selfish_mining_height"]).sort_values("selfish_mining_height")
-
-    orphan_h = orphan_q.rename(columns={"height":"orphan_height","orphan_ts":"orphan_timestamp"})[
-        ["orphan_height","orphan_timestamp"]
-    ]
-
-    aligned = selfish_df.merge(
-        orphan_h, left_on="selfish_mining_height", right_on="orphan_height", how="left", sort=True
-    ).sort_values("selfish_mining_height").reset_index(drop=True)
-
-    aligned = aligned[["selfish_mining_height","selfish_mining_timestamp","orphan_height","orphan_timestamp"]]
-
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    aligned.to_csv(out_path, index=False)
 
 def main():
     df = load_all_blocks(ALL_BLOCKS_PATH)
     res, main_df, runs, prev_ts, orphan_q = compute_qubic_only(df)
     plot_scatter(res, FIG_PATH)
-    export_selfish_orphan_height_aligned(main_df, runs, prev_ts, orphan_q, CSV_PATH)
 
+    # 새 요약 CSV 내보내기
+    export_run_summary(
+        runs=runs,
+        prev_ts=prev_ts,
+        selfish_len=res["selfish_mining_run_length"],
+        out_path=CSV_PATH
+    )
 if __name__ == "__main__":
     main()

@@ -11,52 +11,45 @@ from datetime import datetime, timedelta
 def filter_inactive_periods(df, all_blocks_df, window_hours=12, min_orphans_per_window=3):
     """
     Filter out periods where Qubic orphan blocks are insufficient over consecutive 12-hour windows.
-    Uses sliding window to identify inactive selfish mining periods.
-    Counts actual Qubic orphan blocks from all_blocks.csv.
+    Uses a sliding window to identify inactive selfish-mining periods.
+    All timestamps are kept UTC-aware to avoid tz-naive/aware comparison errors.
     """
+    # Ensure input df ('start_ts') is sorted and UTC-aware upstream (load_data does this)
     df = df.sort_values('start_ts').reset_index(drop=True)
-    
-    # Get Qubic orphan blocks from all_blocks.csv
+
+    # Extract Qubic orphan blocks from all_blocks.csv and make timestamps UTC-aware
     qubic_orphan_blocks = all_blocks_df[
-        (all_blocks_df['is_qubic'] == True) & 
+        (all_blocks_df['is_qubic'] == True) &
         (all_blocks_df['is_orphan'] == True)
     ].copy()
-    qubic_orphan_blocks['timestamp'] = pd.to_datetime(qubic_orphan_blocks['timestamp'])
-    
-    # Normalize timezone: remove timezone info if present to match df['start_ts']
-    if qubic_orphan_blocks['timestamp'].dt.tz is not None:
-        qubic_orphan_blocks['timestamp'] = qubic_orphan_blocks['timestamp'].dt.tz_localize(None)
-    
-    # Create a mask for active periods (where 24h window has enough Qubic orphan blocks)
+    qubic_orphan_blocks['timestamp'] = pd.to_datetime(qubic_orphan_blocks['timestamp'], utc=True)
+
+    # Active mask per run & detailed results for logging
     active_mask = np.zeros(len(df), dtype=bool)
-    results = []  # Store all results first
-    
-    # First pass: collect all data
+    results = []
+
+    # Sliding-window counting
     for i in range(len(df)):
-        run_date = df.iloc[i]['start_ts']
+        run_date = df.iloc[i]['start_ts']                     # tz-aware (UTC)
         window_start = run_date - pd.Timedelta(hours=window_hours)
         window_end = run_date
-        
-        # Count Qubic orphan blocks in the 12-hour window ending at this run
+
+        # Count Qubic orphan blocks in the (window_start, window_end] interval
         window_qubic_orphans = qubic_orphan_blocks[
-            (qubic_orphan_blocks['timestamp'] > window_start) & 
+            (qubic_orphan_blocks['timestamp'] > window_start) &
             (qubic_orphan_blocks['timestamp'] <= window_end)
         ]
-        
         qubic_orphan_count = len(window_qubic_orphans)
-        
-        # Mark as active if window has sufficient Qubic orphan blocks
-        # With 12-hour window, we don't need additional "last orphan" check since window itself is recent
+
         is_active = qubic_orphan_count >= min_orphans_per_window
         active_mask[i] = is_active
-        
-        # Get last orphan time for logging
-        last_orphan_time = None
-        time_since_last_orphan = None
-        if len(window_qubic_orphans) > 0:
-            last_orphan_time = window_qubic_orphans['timestamp'].max()
-            time_since_last_orphan = (run_date - last_orphan_time).total_seconds() / 3600
-        
+
+        last_orphan_time = window_qubic_orphans['timestamp'].max() if qubic_orphan_count > 0 else None
+        time_since_last_orphan = (
+            (run_date - last_orphan_time).total_seconds() / 3600
+            if last_orphan_time is not None else None
+        )
+
         results.append({
             'date': run_date,
             'count': qubic_orphan_count,
@@ -64,87 +57,90 @@ def filter_inactive_periods(df, all_blocks_df, window_hours=12, min_orphans_per_
             'window_end': window_end,
             'last_orphan_time': last_orphan_time,
             'hours_since_last_orphan': time_since_last_orphan,
-            'status': "VALID" if is_active else "EXCLUDED"
+            'status': "VALID" if is_active else "EXCLUDED",
         })
-    
-    # Second pass: print with compression (skip consecutive same status)
+
+    # Compressed log printing (avoid tz conversion issues by converting only for display)
+    def _fmt(ts, with_time=True):
+        if ts is None or pd.isna(ts):
+            return "N/A"
+        # display-only conversion; keep internal data tz-aware
+        s = ts.tz_convert('UTC')
+        return s.strftime('%Y-%m-%d %H:%M') if with_time else s.strftime('%Y-%m-%d')
+
     print(f"\n  Detailed exclusion log (min {min_orphans_per_window} Qubic orphan blocks per {window_hours}h window):")
     print(f"  {'Date':<12} {'Qubic Orphan':<15} {'Hours Since':<12} {'Window Start':<20} {'Window End':<20} {'Status':<10}")
     print(f"  {'-'*12} {'-'*15} {'-'*12} {'-'*20} {'-'*20} {'-'*10}")
-    
+
     i = 0
     while i < len(results):
         current_status = results[i]['status']
         start_idx = i
-        
-        # Find consecutive same status
         while i < len(results) and results[i]['status'] == current_status:
             i += 1
         end_idx = i - 1
-        
-        # Print first entry
+
+        # First entry
         r = results[start_idx]
         hours_since = f"{r['hours_since_last_orphan']:.1f}" if r['hours_since_last_orphan'] is not None else "N/A"
-        print(f"  {r['date'].strftime('%Y-%m-%d'):<12} {r['count']:<15} {hours_since:<12} "
-              f"{r['window_start'].strftime('%Y-%m-%d %H:%M'):<20} "
-              f"{r['window_end'].strftime('%Y-%m-%d %H:%M'):<20} {r['status']:<10}")
-        
-        # If there are multiple consecutive entries, print last one and skip message
+        print(f"  {_fmt(r['date'], with_time=False):<12} {r['count']:<15} {hours_since:<12} "
+              f"{_fmt(r['window_start']):<20} {_fmt(r['window_end']):<20} {r['status']:<10}")
+
+        # Last entry if span > 1
         if end_idx > start_idx:
             r_end = results[end_idx]
             if end_idx > start_idx + 1:
-                # More than 2 entries, show skip message
                 print(f"  ... ({end_idx - start_idx - 1} entries skipped) ...")
             hours_since_end = f"{r_end['hours_since_last_orphan']:.1f}" if r_end['hours_since_last_orphan'] is not None else "N/A"
-            print(f"  {r_end['date'].strftime('%Y-%m-%d'):<12} {r_end['count']:<15} {hours_since_end:<12} "
-                  f"{r_end['window_start'].strftime('%Y-%m-%d %H:%M'):<20} "
-                  f"{r_end['window_end'].strftime('%Y-%m-%d %H:%M'):<20} {r_end['status']:<10}")
-    
+            print(f"  {_fmt(r_end['date'], with_time=False):<12} {r_end['count']:<15} {hours_since_end:<12} "
+                  f"{_fmt(r_end['window_start']):<20} {_fmt(r_end['window_end']):<20} {r_end['status']:<10}")
+
     print()
     return active_mask, results
 
 
+def _to_utc_aware(s: pd.Series) -> pd.Series:
+    return pd.to_datetime(s, errors="coerce", utc=True)
+
 def load_data(min_orphans_per_12h=3):
-    """
-    Load the orphan run length data and compute orphan/run length ratio.
-    Filters out periods where Qubic orphan blocks are insufficient over consecutive 12-hour windows.
-    Uses actual Qubic orphan blocks from all_blocks.csv for accurate counting.
-    """
-    # Load run data
-    df = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
-    df['start_ts'] = pd.to_datetime(df['start_ts'])
-    df = df.sort_values('start_ts').reset_index(drop=True)
-    
-    # Load all blocks to count Qubic orphan blocks accurately
-    print(f"  Loading all_blocks.csv to count Qubic orphan blocks...")
-    all_blocks_df = pd.read_csv('data/all_blocks.csv')
-    all_blocks_df['timestamp'] = pd.to_datetime(all_blocks_df['timestamp'])
-    
-    # Normalize timezone: remove timezone info if present
-    if all_blocks_df['timestamp'].dt.tz is not None:
-        all_blocks_df['timestamp'] = all_blocks_df['timestamp'].dt.tz_localize(None)
-    
+
+    df = pd.read_csv("data/selfish_mining_blocks.csv")
+
+    if "start_ts" in df.columns:
+        df["start_ts"] = _to_utc_aware(df["start_ts"])
+    if "end_ts" in df.columns:
+        df["end_ts"] = _to_utc_aware(df["end_ts"])
+
+    df = df.sort_values("start_ts").reset_index(drop=True)
+
+    print("  Loading all_blocks.csv to count Qubic orphan blocks...")
+    all_blocks_df = pd.read_csv("data/all_blocks.csv")
+
+    all_blocks_df["timestamp"] = _to_utc_aware(all_blocks_df["timestamp"])
+
     original_count = len(df)
-    
-    # Filter out periods with insufficient Qubic orphan activity in 12-hour windows
+
     print(f"  Identifying active selfish mining periods (12-hour sliding window, min {min_orphans_per_12h} Qubic orphan blocks)...")
-    active_mask, filter_results = filter_inactive_periods(df, all_blocks_df, window_hours=12, min_orphans_per_window=min_orphans_per_12h)
+    active_mask, filter_results = filter_inactive_periods(
+        df,
+        all_blocks_df,
+        window_hours=12,
+        min_orphans_per_window=min_orphans_per_12h,
+    )
+
     df = df[active_mask].copy().reset_index(drop=True)
     filtered_count = len(df)
-    
+
     print(f"  Summary: Filtered out {original_count - filtered_count} runs in inactive periods")
     print(f"  (12-hour window with < {min_orphans_per_12h} Qubic orphan blocks)")
     print(f"  Remaining runs for analysis: {filtered_count}")
-    
+
     if len(df) == 0:
         raise ValueError("No runs with sufficient Qubic orphan blocks in 12-hour windows found!")
-    
-    # Compute orphan count per run length ratio
-    df['orphans_per_length'] = df['total_orphans_on_run'] / df['length_qubic_run']
-    
-    # Replace inf and nan with 0 (when run_length is 0)
-    df['orphans_per_length'] = df['orphans_per_length'].replace([np.inf, -np.inf], 0).fillna(0)
-    
+
+    df["orphans_per_length"] = df["total_orphans_on_run"] / df["length_qubic_run"]
+    df["orphans_per_length"] = df["orphans_per_length"].replace([np.inf, -np.inf], 0).fillna(0)
+
     return df, filter_results
 
 
@@ -568,8 +564,8 @@ def analyze_periods():
     print()
     
     # Load original data for visualization
-    original_data = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
-    original_data['start_ts'] = pd.to_datetime(original_data['start_ts'])
+    original_data = pd.read_csv('data/selfish_mining_blocks.csv')
+    original_data['start_ts'] = pd.to_datetime(original_data['start_ts'], utc=True)
     
     # Create visualizations for EXCLUDED and VALID periods
     create_period_visualizations_by_status(original_data, filter_results)
@@ -745,7 +741,7 @@ def verify_orphan_counting():
     print("=" * 80)
     
     # Load run data
-    df = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
+    df = pd.read_csv('data/selfish_mining_blocks.csv')
     print(f"\nTotal runs in dataset: {len(df)}")
     
     # Load all blocks to get actual orphan blocks
