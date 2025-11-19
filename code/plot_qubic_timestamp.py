@@ -118,7 +118,7 @@ def analyze_qubic_timestamp_manipulation():
     fig, ax1 = plt.subplots(1, 1, figsize=(8, 6))
     
     # Time difference distribution (latency summary)
-    ax1.hist(results_df['time_diff_seconds'], bins=50, alpha=0.7, color='red', edgecolor='black')
+    ax1.hist(results_df['time_diff_seconds'], bins=50, alpha=0.7, color='lightgray', edgecolor='black')
     ax1.axvline(x=0, color='black', linestyle='--', alpha=0.7, label='Same timestamp')
     ax1.set_xlabel('Time Difference (seconds)', fontsize=16)
     ax1.set_ylabel('Frequency', fontsize=16)

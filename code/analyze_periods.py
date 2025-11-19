@@ -7,145 +7,200 @@ from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler
 from datetime import datetime, timedelta
 
+# ---------------------------------------------------------------------------
+# Hourly validity parameters shared with plotting utilities
+# ---------------------------------------------------------------------------
 
-def filter_inactive_periods(df, all_blocks_df, window_hours=12, min_orphans_per_window=3):
+HOURLY_VALIDITY_CONFIG = {
+    "min_per_hour": 2,
+    "min_duration_hours": 4,
+    "merge_gap_hours": 6,
+}
+
+
+def format_hourly_variant(variant: dict) -> str:
     """
-    Filter out periods where Qubic orphan blocks are insufficient over consecutive 12-hour windows.
-    Uses sliding window to identify inactive selfish mining periods.
-    Counts actual Qubic orphan blocks from all_blocks.csv.
+    Return a human-readable summary string for a hourly validity variant.
     """
-    df = df.sort_values('start_ts').reset_index(drop=True)
-    
-    # Get Qubic orphan blocks from all_blocks.csv
-    qubic_orphan_blocks = all_blocks_df[
-        (all_blocks_df['is_qubic'] == True) & 
-        (all_blocks_df['is_orphan'] == True)
-    ].copy()
-    qubic_orphan_blocks['timestamp'] = pd.to_datetime(qubic_orphan_blocks['timestamp'])
-    
-    # Normalize timezone: remove timezone info if present to match df['start_ts']
-    if qubic_orphan_blocks['timestamp'].dt.tz is not None:
-        qubic_orphan_blocks['timestamp'] = qubic_orphan_blocks['timestamp'].dt.tz_localize(None)
-    
-    # Create a mask for active periods (where 24h window has enough Qubic orphan blocks)
-    active_mask = np.zeros(len(df), dtype=bool)
-    results = []  # Store all results first
-    
-    # First pass: collect all data
-    for i in range(len(df)):
-        run_date = df.iloc[i]['start_ts']
-        window_start = run_date - pd.Timedelta(hours=window_hours)
-        window_end = run_date
-        
-        # Count Qubic orphan blocks in the 12-hour window ending at this run
-        window_qubic_orphans = qubic_orphan_blocks[
-            (qubic_orphan_blocks['timestamp'] > window_start) & 
-            (qubic_orphan_blocks['timestamp'] <= window_end)
-        ]
-        
-        qubic_orphan_count = len(window_qubic_orphans)
-        
-        # Mark as active if window has sufficient Qubic orphan blocks
-        # With 12-hour window, we don't need additional "last orphan" check since window itself is recent
-        is_active = qubic_orphan_count >= min_orphans_per_window
-        active_mask[i] = is_active
-        
-        # Get last orphan time for logging
-        last_orphan_time = None
-        time_since_last_orphan = None
-        if len(window_qubic_orphans) > 0:
-            last_orphan_time = window_qubic_orphans['timestamp'].max()
-            time_since_last_orphan = (run_date - last_orphan_time).total_seconds() / 3600
-        
-        results.append({
-            'date': run_date,
-            'count': qubic_orphan_count,
-            'window_start': window_start,
-            'window_end': window_end,
-            'last_orphan_time': last_orphan_time,
-            'hours_since_last_orphan': time_since_last_orphan,
-            'status': "VALID" if is_active else "EXCLUDED"
-        })
-    
-    # Second pass: print with compression (skip consecutive same status)
-    print(f"\n  Detailed exclusion log (min {min_orphans_per_window} Qubic orphan blocks per {window_hours}h window):")
-    print(f"  {'Date':<12} {'Qubic Orphan':<15} {'Hours Since':<12} {'Window Start':<20} {'Window End':<20} {'Status':<10}")
-    print(f"  {'-'*12} {'-'*15} {'-'*12} {'-'*20} {'-'*20} {'-'*10}")
-    
-    i = 0
-    while i < len(results):
-        current_status = results[i]['status']
-        start_idx = i
-        
-        # Find consecutive same status
-        while i < len(results) and results[i]['status'] == current_status:
-            i += 1
-        end_idx = i - 1
-        
-        # Print first entry
-        r = results[start_idx]
-        hours_since = f"{r['hours_since_last_orphan']:.1f}" if r['hours_since_last_orphan'] is not None else "N/A"
-        print(f"  {r['date'].strftime('%Y-%m-%d'):<12} {r['count']:<15} {hours_since:<12} "
-              f"{r['window_start'].strftime('%Y-%m-%d %H:%M'):<20} "
-              f"{r['window_end'].strftime('%Y-%m-%d %H:%M'):<20} {r['status']:<10}")
-        
-        # If there are multiple consecutive entries, print last one and skip message
-        if end_idx > start_idx:
-            r_end = results[end_idx]
-            if end_idx > start_idx + 1:
-                # More than 2 entries, show skip message
-                print(f"  ... ({end_idx - start_idx - 1} entries skipped) ...")
-            hours_since_end = f"{r_end['hours_since_last_orphan']:.1f}" if r_end['hours_since_last_orphan'] is not None else "N/A"
-            print(f"  {r_end['date'].strftime('%Y-%m-%d'):<12} {r_end['count']:<15} {hours_since_end:<12} "
-                  f"{r_end['window_start'].strftime('%Y-%m-%d %H:%M'):<20} "
-                  f"{r_end['window_end'].strftime('%Y-%m-%d %H:%M'):<20} {r_end['status']:<10}")
-    
-    print()
-    return active_mask, results
+    return (
+        variant.get("label")
+        or f"≥{variant['min_per_hour']}/hour, duration≥{variant['min_duration_hours']}h, merge≤{variant['merge_gap_hours']}h"
+    )
 
 
-def load_data(min_orphans_per_12h=3):
+def aggregate_counts_hourly(all_blocks_df: pd.DataFrame):
+    """
+    Return hourly counts for Qubic orphan blocks, other orphan blocks, and aligned index.
+    """
+    orphan_df = all_blocks_df[all_blocks_df["is_orphan"] == True].copy()
+    qubic = orphan_df[orphan_df["is_qubic"] == True]
+    other = orphan_df[orphan_df["is_qubic"] == False]
+
+    qubic["hour"] = qubic["timestamp"].dt.floor("H")
+    other["hour"] = other["timestamp"].dt.floor("H")
+
+    q_counts = qubic.groupby("hour").size().rename("Qubic")
+    o_counts = other.groupby("hour").size().rename("Other")
+
+    index = q_counts.index.union(o_counts.index).sort_values()
+    q_counts = q_counts.reindex(index, fill_value=0)
+    o_counts = o_counts.reindex(index, fill_value=0)
+    return index, q_counts, o_counts
+
+
+def detect_hourly_segments(
+    index,
+    total_counts: pd.Series,
+    min_per_hour: int = 1,
+    min_duration_hours: int = 5,
+):
+    """
+    Identify contiguous hourly segments (start inclusive, end exclusive) where total orphan
+    counts meet the minimum per-hour requirement and total duration meets the threshold.
+    """
+    mask = (total_counts >= min_per_hour).astype(int).values
+    spans = []
+    start = None
+    for i, val in enumerate(mask):
+        if val and start is None:
+            start = i
+        is_last = i == len(mask) - 1
+        if (not val or is_last) and start is not None:
+            end_idx = i if is_last and val else i - 1
+            duration_hours = end_idx - start + 1
+            if duration_hours >= min_duration_hours:
+                spans.append((index[start], index[end_idx] + pd.Timedelta(hours=1)))
+            start = None
+    return spans
+
+
+def merge_segments(spans, max_gap_hours: int = 0):
+    """
+    Merge contiguous/nearby segments whose gaps are less than or equal to max_gap_hours.
+    """
+    if not spans:
+        return []
+    spans = sorted(spans, key=lambda x: x[0])
+    merged = [spans[0]]
+    gap_delta = pd.Timedelta(hours=max_gap_hours)
+    for start, end in spans[1:]:
+        prev_start, prev_end = merged[-1]
+        if start - prev_end <= gap_delta:
+            merged[-1] = (prev_start, max(prev_end, end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def compute_hourly_valid_segments(
+    all_blocks_df: pd.DataFrame,
+    min_per_hour: int,
+    min_duration_hours: int,
+    merge_gap_hours: int,
+):
+    """
+    Compute merged hourly validity segments along with supporting hourly counts.
+    """
+    index, q_counts, o_counts = aggregate_counts_hourly(all_blocks_df)
+    total_counts = q_counts + o_counts
+    raw_spans = detect_hourly_segments(
+        index,
+        total_counts,
+        min_per_hour=min_per_hour,
+        min_duration_hours=min_duration_hours,
+    )
+    merged_spans = merge_segments(raw_spans, max_gap_hours=merge_gap_hours)
+    return {
+        "index": index,
+        "qubic_counts": q_counts,
+        "other_counts": o_counts,
+        "total_counts": total_counts,
+        "raw_spans": raw_spans,
+        "merged_spans": merged_spans,
+    }
+
+
+def load_data(hourly_variant: dict | None = None):
     """
     Load the orphan run length data and compute orphan/run length ratio.
-    Filters out periods where Qubic orphan blocks are insufficient over consecutive 12-hour windows.
-    Uses actual Qubic orphan blocks from all_blocks.csv for accurate counting.
+    Filters out runs using hourly orphan block activity defined by hourly_variant.
     """
+    if hourly_variant is None:
+        hourly_variant = HOURLY_VALIDITY_CONFIG
+    variant_label = format_hourly_variant(hourly_variant)
+
     # Load run data
     df = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
     df['start_ts'] = pd.to_datetime(df['start_ts'])
     df = df.sort_values('start_ts').reset_index(drop=True)
     
-    # Load all blocks to count Qubic orphan blocks accurately
-    print(f"  Loading all_blocks.csv to count Qubic orphan blocks...")
+    # Load all blocks to compute hourly orphan counts
+    print(f"  Loading all_blocks.csv to compute hourly orphan activity...")
     all_blocks_df = pd.read_csv('data/all_blocks.csv')
     all_blocks_df['timestamp'] = pd.to_datetime(all_blocks_df['timestamp'])
     
-    # Normalize timezone: remove timezone info if present
     if all_blocks_df['timestamp'].dt.tz is not None:
         all_blocks_df['timestamp'] = all_blocks_df['timestamp'].dt.tz_localize(None)
     
     original_count = len(df)
     
-    # Filter out periods with insufficient Qubic orphan activity in 12-hour windows
-    print(f"  Identifying active selfish mining periods (12-hour sliding window, min {min_orphans_per_12h} Qubic orphan blocks)...")
-    active_mask, filter_results = filter_inactive_periods(df, all_blocks_df, window_hours=12, min_orphans_per_window=min_orphans_per_12h)
+    segments_info = compute_hourly_valid_segments(
+        all_blocks_df,
+        min_per_hour=hourly_variant['min_per_hour'],
+        min_duration_hours=hourly_variant['min_duration_hours'],
+        merge_gap_hours=hourly_variant['merge_gap_hours'],
+    )
+    merged_segments = segments_info['merged_spans']
+    
+    print(f"  Hourly validity criteria: {variant_label}")
+    if merged_segments:
+        print(f"  Identified {len(merged_segments)} merged validity segments:")
+        for seg_start, seg_end in merged_segments:
+            duration = seg_end - seg_start
+            print(f"    {seg_start} -> {seg_end} (duration {duration})")
+    else:
+        print("  No validity segments found with current settings.")
+    
+    def is_valid_run(timestamp):
+        for seg_start, seg_end in merged_segments:
+            if seg_start <= timestamp < seg_end:
+                return True
+        return False
+    
+    run_status = df['start_ts'].apply(is_valid_run)
+    active_mask = run_status.values
+    total_counts_map = segments_info['total_counts']
+    filter_results = []
+    for ts, valid in zip(df['start_ts'], active_mask):
+        hour_slot = ts.floor('H')
+        total_count = int(total_counts_map.get(hour_slot, 0))
+        filter_results.append({
+            'date': ts,
+            'status': 'VALID' if valid else 'EXCLUDED',
+            'count': total_count,
+            'backward_count': total_count,
+            'forward_count': 0,
+            'symmetric_count': 0,
+            'window_start': hour_slot,
+            'window_end': hour_slot + pd.Timedelta(hours=1),
+            'last_orphan_time': None,
+            'hours_since_last_orphan': None,
+            'reason': 'HOURLY' if valid else 'INSUFFICIENT',
+        })
+    
     df = df[active_mask].copy().reset_index(drop=True)
     filtered_count = len(df)
     
     print(f"  Summary: Filtered out {original_count - filtered_count} runs in inactive periods")
-    print(f"  (12-hour window with < {min_orphans_per_12h} Qubic orphan blocks)")
     print(f"  Remaining runs for analysis: {filtered_count}")
     
     if len(df) == 0:
-        raise ValueError("No runs with sufficient Qubic orphan blocks in 12-hour windows found!")
+        raise ValueError("No runs satisfy the hourly orphan criteria. Adjust HOURLY_VALIDITY_CONFIG.")
     
-    # Compute orphan count per run length ratio
     df['orphans_per_length'] = df['total_orphans_on_run'] / df['length_qubic_run']
-    
-    # Replace inf and nan with 0 (when run_length is 0)
     df['orphans_per_length'] = df['orphans_per_length'].replace([np.inf, -np.inf], 0).fillna(0)
     
-    return df, filter_results
+    return df, filter_results, segments_info
 
 
 def detect_change_points(data, feature_col, min_segment_size=5, penalty=10, min_orphans_per_window=2):
@@ -557,12 +612,11 @@ def analyze_periods():
     print("=" * 80)
     print()
     
-    # Step 1: Load data (filter out periods with insufficient Qubic orphan blocks in 12h windows)
+    # Step 1: Load data (filter out periods based on hourly orphan activity)
     print("Step 1: Loading data...")
-    print("  Filtering out periods with insufficient Qubic orphan blocks in 12-hour windows...")
-    # Use 3 Qubic orphan blocks as threshold for 12-hour window
-    min_orphans_threshold = 3
-    data, filter_results = load_data(min_orphans_per_12h=min_orphans_threshold)
+    default_variant = HOURLY_VALIDITY_CONFIG
+    print(f"  Using hourly validity criteria: {format_hourly_variant(default_variant)}")
+    data, filter_results, segments_info = load_data(hourly_variant=default_variant)
     print(f"  Loaded {len(data)} runs in active selfish mining periods")
     print(f"  Date range: {data['start_ts'].min()} to {data['start_ts'].max()}")
     print()
@@ -619,7 +673,7 @@ def analyze_periods():
     # Step 5: Validate segments (exclude periods with insufficient orphan activity)
     print("Step 5: Validating segments...")
     print("  Minimum requirements: 3 runs, 5 total orphan blocks")
-    print("  (Inactive periods already filtered by 24-hour window check)")
+    print("  (Inactive periods already filtered by hourly orphan threshold)")
     validated_segments = validate_segments(merged_segments, min_runs=3, min_orphans_per_period=5)
     print(f"  Validated {len(validated_segments)} segments with sufficient orphan activity")
     print()

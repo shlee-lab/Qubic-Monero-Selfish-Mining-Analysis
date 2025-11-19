@@ -24,8 +24,8 @@ def create_visualizations(res):
         ax2.set_yticks(range(0, max_y + 1))
 
     plt.tight_layout()
-    plt.show()
-    plt.savefig('fig/orphan_run_length.pdf', bbox_inches='tight')
+    plt.show(block=False)  # Non-blocking show to allow save after
+    plt.savefig('fig/orphan_run_length.pdf', bbox_inches='tight', dpi=300)
     plt.close(fig)
 
 

@@ -228,8 +228,8 @@ def create_weekly_dual_axis_chart(weekly_df):
 	weekly_df['week_str'] = weekly_df['week'].astype(str)
 	
 	# Create bars for 0' state counts (left y-axis)
-	bars = ax1.bar(weekly_df['week_str'], weekly_df['estimated_0_prime_count'], 
-				   alpha=0.7, color='lightblue', edgecolor='navy', linewidth=1, label='Estimated 0\' State Count')
+	bars = ax1.bar(weekly_df['week_str'], weekly_df['estimated_0_prime_count'], width=0.7,
+				   alpha=0.7, color='lightgray', edgecolor='black', linewidth=1, label='Estimated 0\' State Count')
 	ax1.set_xlabel('Week', fontsize=18)
 	ax1.set_ylabel('Estimated 0\' State Count', fontsize=18)
 	ax1.tick_params(axis='x', rotation=45)
