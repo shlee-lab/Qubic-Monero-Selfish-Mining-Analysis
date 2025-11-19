@@ -203,13 +203,13 @@ def analyze_qubic_mining():
             alpha=0.6, label='Non-Qubic Regular Blocks', color='lightgray', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], non_qubic_orphan_blocks,
             bottom=non_qubic_regular_blocks,
-            alpha=0.6, label='Non-Qubic Orphan Blocks', color='yellowgreen', edgecolor='black', linewidth=0.5)
+            alpha=0.6, label='Non-Qubic Orphan Blocks', color='gray', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], qubic_regular_blocks,
             bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks,
             alpha=0.6, label='Qubic Regular Blocks', color='lightblue', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], qubic_orphan_blocks,
             bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks + qubic_regular_blocks,
-            alpha=0.6, label='Qubic Orphan Blocks', color='orange', edgecolor='black', linewidth=0.5)
+            alpha=1, label='Qubic Orphan Blocks', color='skyblue', edgecolor='black', linewidth=0.5)
 
     ax2.set_xlabel('Date', fontsize=14, labelpad=LABEL_PAD)
     ax2.set_ylabel('Number of Blocks', fontsize=14, labelpad=LABEL_PAD)
