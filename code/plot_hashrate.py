@@ -232,8 +232,24 @@ def analyze_qubic_mining():
 
     handles1, labels1 = ax2.get_legend_handles_labels()
     handles2, labels2 = ax2b.get_legend_handles_labels()
-    # Legend placement: lower left
-    ax2.legend(handles1 + handles2, labels1 + labels2, loc='lower left')
+
+    desired_order = [
+        'Qubic Orphan Blocks',
+        'Qubic Regular Blocks',
+        'Non-Qubic Orphan Blocks',
+        'Non-Qubic Regular Blocks',
+    ]
+
+    label_to_handle = {label: handle for handle, label in zip(handles1, labels1)}
+
+    ordered_bar_handles = [label_to_handle[l] for l in desired_order if l in label_to_handle]
+    ordered_bar_labels  = [l for l in desired_order if l in label_to_handle]
+
+    handles = handles2 + ordered_bar_handles
+    labels  = labels2 + ordered_bar_labels
+
+    ax2.legend(handles, labels, loc='lower left')
+
 
     fig2.tight_layout()
     fig2.savefig('fig/block_production.pdf', dpi=300, bbox_inches='tight')
