@@ -164,14 +164,13 @@ def analyze_qubic_mining():
     fig1, ax1 = plt.subplots(1, 1, figsize=(15, 6))
 
     ax1.plot(daily_df['date'], daily_df['qubic_power_ratio'],
-             marker='o', linewidth=2, markersize=4, color='red', label='Daily Mining Power Share')
+             marker='o', linewidth=2, markersize=4, color='red', zorder=1, label='Daily Mining Power Share')
 
     ax1.plot(weekly_df['week_end'], weekly_df['qubic_power_ratio'],
-             marker='s', linewidth=2, markersize=6, color='blue', label='Weekly Mining Power Share')
+             marker='s', linewidth=2, markersize=6, color='blue', zorder=2, label='Weekly Mining Power Share')
 
-    hourly_sample = hourly_df[hourly_df.index % 6 == 0]
-    ax1.plot(hourly_sample['hour'], hourly_sample['qubic_power_ratio'],
-             marker='^', linewidth=1, markersize=3, color='green', alpha=0.7, label='Hourly Mining Power Share')
+    ax1.plot(hourly_df['hour'], hourly_df['qubic_power_ratio'],
+             linewidth=1, color='#9ACD32', alpha=0.8, zorder=0, label='Hourly Mining Power Share')
 
     ax1.axhline(y=qubic_power_overall, color='black', linestyle='--', linewidth=2,
                 label=f'Overall Average ({qubic_power_overall:.2f}%)')
@@ -201,16 +200,16 @@ def analyze_qubic_mining():
 
     # Stack order: Non-Qubic Regular (bottom) -> Non-Qubic Orphan -> Qubic Regular -> Qubic Orphan (top)
     ax2.bar(daily_df['date'], non_qubic_regular_blocks,
-            alpha=0.9, label='Non-Qubic Regular Blocks', color='#E0E0E0', edgecolor='black', linewidth=0.5)
+            alpha=0.6, label='Non-Qubic Regular Blocks', color='lightgray', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], non_qubic_orphan_blocks,
             bottom=non_qubic_regular_blocks,
-            alpha=0.9, label='Non-Qubic Orphan Blocks', color='#9E9E9E', edgecolor='black', linewidth=0.5)
+            alpha=0.6, label='Non-Qubic Orphan Blocks', color='gray', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], qubic_regular_blocks,
             bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks,
-            alpha=0.9, label='Qubic Regular Blocks', color='#FF9800', edgecolor='black', linewidth=0.5)
+            alpha=0.6, label='Qubic Regular Blocks', color='lightblue', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], qubic_orphan_blocks,
             bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks + qubic_regular_blocks,
-            alpha=0.9, label='Qubic Orphan Blocks', color='#F44336', edgecolor='black', linewidth=0.5)
+            alpha=1, label='Qubic Orphan Blocks', color='skyblue', edgecolor='black', linewidth=0.5)
 
     ax2.set_xlabel('Date', fontsize=14, labelpad=LABEL_PAD)
     ax2.set_ylabel('Number of Blocks', fontsize=14, labelpad=LABEL_PAD)
@@ -223,10 +222,9 @@ def analyze_qubic_mining():
     plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45)
 
     ax2b = ax2.twinx()
-    difficulty_color = 'crimson'  
     
     ax2b.plot(daily_df['date'], daily_df['avg_difficulty_scaled'] * 10,
-              marker='o', linewidth=1.8, color=difficulty_color, label='Daily Avg Difficulty')
+              marker='o', linewidth=2, color='crimson', label='Daily Avg Difficulty')
     ax2b.set_ylabel(f'Avg Difficulty (daily) / 10¹¹', fontsize=14, labelpad=LABEL_PAD + 2)
     ax2b.tick_params(axis='both', pad=TICK_PAD)
     # Remove scientific notation since we already have / 10¹¹ in the label
@@ -234,8 +232,24 @@ def analyze_qubic_mining():
 
     handles1, labels1 = ax2.get_legend_handles_labels()
     handles2, labels2 = ax2b.get_legend_handles_labels()
-    # Legend placement: lower left
-    ax2.legend(handles1 + handles2, labels1 + labels2, loc='lower left')
+
+    desired_order = [
+        'Qubic Orphan Blocks',
+        'Qubic Regular Blocks',
+        'Non-Qubic Orphan Blocks',
+        'Non-Qubic Regular Blocks',
+    ]
+
+    label_to_handle = {label: handle for handle, label in zip(handles1, labels1)}
+
+    ordered_bar_handles = [label_to_handle[l] for l in desired_order if l in label_to_handle]
+    ordered_bar_labels  = [l for l in desired_order if l in label_to_handle]
+
+    handles = handles2 + ordered_bar_handles
+    labels  = labels2 + ordered_bar_labels
+
+    ax2.legend(handles, labels, loc='lower left')
+
 
     fig2.tight_layout()
     fig2.savefig('fig/block_production.pdf', dpi=300, bbox_inches='tight')

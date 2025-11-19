@@ -36,8 +36,10 @@ def aggregate_counts_hourly(all_blocks_df: pd.DataFrame):
     qubic = orphan_df[orphan_df["is_qubic"] == True]
     other = orphan_df[orphan_df["is_qubic"] == False]
 
-    qubic["hour"] = qubic["timestamp"].dt.floor("H")
-    other["hour"] = other["timestamp"].dt.floor("H")
+    qubic = qubic.copy()
+    other = other.copy()
+    qubic["hour"] = qubic["timestamp"].dt.floor("h")
+    other["hour"] = other["timestamp"].dt.floor("h")
 
     q_counts = qubic.groupby("hour").size().rename("Qubic")
     o_counts = other.groupby("hour").size().rename("Other")
@@ -130,8 +132,11 @@ def load_data(hourly_variant: dict | None = None):
     variant_label = format_hourly_variant(hourly_variant)
 
     # Load run data
-    df = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
+    df = pd.read_csv('data/selfish_mining_blocks.csv')
     df['start_ts'] = pd.to_datetime(df['start_ts'])
+    # Make tz-naive to match segments
+    if df['start_ts'].dt.tz is not None:
+        df['start_ts'] = df['start_ts'].dt.tz_localize(None)
     df = df.sort_values('start_ts').reset_index(drop=True)
     
     # Load all blocks to compute hourly orphan counts
@@ -172,7 +177,7 @@ def load_data(hourly_variant: dict | None = None):
     total_counts_map = segments_info['total_counts']
     filter_results = []
     for ts, valid in zip(df['start_ts'], active_mask):
-        hour_slot = ts.floor('H')
+        hour_slot = ts.floor('h')
         total_count = int(total_counts_map.get(hour_slot, 0))
         filter_results.append({
             'date': ts,
@@ -190,10 +195,10 @@ def load_data(hourly_variant: dict | None = None):
     
     df = df[active_mask].copy().reset_index(drop=True)
     filtered_count = len(df)
-    
+
     print(f"  Summary: Filtered out {original_count - filtered_count} runs in inactive periods")
     print(f"  Remaining runs for analysis: {filtered_count}")
-    
+
     if len(df) == 0:
         raise ValueError("No runs satisfy the hourly orphan criteria. Adjust HOURLY_VALIDITY_CONFIG.")
     
@@ -622,8 +627,11 @@ def analyze_periods():
     print()
     
     # Load original data for visualization
-    original_data = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
+    original_data = pd.read_csv('data/selfish_mining_blocks.csv')
     original_data['start_ts'] = pd.to_datetime(original_data['start_ts'])
+    # Make tz-naive to match filter_results
+    if original_data['start_ts'].dt.tz is not None:
+        original_data['start_ts'] = original_data['start_ts'].dt.tz_localize(None)
     
     # Create visualizations for EXCLUDED and VALID periods
     create_period_visualizations_by_status(original_data, filter_results)
@@ -799,7 +807,7 @@ def verify_orphan_counting():
     print("=" * 80)
     
     # Load run data
-    df = pd.read_csv('data/qubic_orphan_start_qubic_continuous_split.csv')
+    df = pd.read_csv('data/selfish_mining_blocks.csv')
     print(f"\nTotal runs in dataset: {len(df)}")
     
     # Load all blocks to get actual orphan blocks
