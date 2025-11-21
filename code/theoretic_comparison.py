@@ -44,6 +44,12 @@ for color, gamma in zip(colors, gammas):
              color=color, linewidth=2,
              alpha=0.85, linestyle=(0, (8, 4)),
              label=f"Modified strategy γ={gamma}")
+    
+    # gamma=0일 때 selfish mining과 modified strategy 사이 영역 음영처리 (공격자의 추정 수익구간)
+    if gamma == 0.0:
+        plt.fill_between(alphas, R_mod, R_orig, 
+                        color=color, alpha=0.15, 
+                        label="Estimated profit region (γ=0)")
 
 plt.xlabel("Miner hash power", fontsize=16)
 plt.ylabel("Revenue ratio", fontsize=16)

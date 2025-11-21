@@ -170,7 +170,7 @@ def analyze_qubic_mining():
              marker='s', linewidth=2, markersize=6, color='blue', label='Weekly Mining Power Share')
 
     ax1.plot(hourly_df['hour'], hourly_df['qubic_power_ratio'],
-             linewidth=1, color='green', alpha=0.7, label='Hourly Mining Power Share')
+             linewidth=1, color='seagreen', alpha=0.7, label='Hourly Mining Power Share')
 
     ax1.axhline(y=qubic_power_overall, color='black', linestyle='--', linewidth=2,
                 label=f'Overall Average ({qubic_power_overall:.2f}%)')
@@ -188,6 +188,8 @@ def analyze_qubic_mining():
 
     fig1.tight_layout()
     fig1.savefig('fig/mining_share.pdf', dpi=300, bbox_inches='tight')
+    print("Saved fig/mining_share.pdf")
+    plt.show()  # Display the plot
     plt.close(fig1)
 
     # ===== Figure 2: Stacked bars + daily avg difficulty line (twin y-axis) =====
@@ -199,6 +201,7 @@ def analyze_qubic_mining():
     non_qubic_regular_blocks = daily_df['non_qubic_regular_blocks']
 
     # Stack order: Non-Qubic Regular (bottom) -> Non-Qubic Orphan -> Qubic Regular -> Qubic Orphan (top)
+    # Qubic blocks use skyblue color scheme
     ax2.bar(daily_df['date'], non_qubic_regular_blocks,
             alpha=0.9, label='Non-Qubic Regular Blocks', color='#E0E0E0', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], non_qubic_orphan_blocks,
@@ -206,10 +209,10 @@ def analyze_qubic_mining():
             alpha=0.9, label='Non-Qubic Orphan Blocks', color='#9E9E9E', edgecolor='black', linewidth=0.5)
     ax2.bar(daily_df['date'], qubic_regular_blocks,
             bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks,
-            alpha=0.9, label='Qubic Regular Blocks', color='#FF9800', edgecolor='black', linewidth=0.5)
+            alpha=0.9, label='Qubic Regular Blocks', color='#87CEEB', edgecolor='black', linewidth=0.5)  # Skyblue
     ax2.bar(daily_df['date'], qubic_orphan_blocks,
             bottom=non_qubic_regular_blocks + non_qubic_orphan_blocks + qubic_regular_blocks,
-            alpha=0.9, label='Qubic Orphan Blocks', color='#F44336', edgecolor='black', linewidth=0.5)
+            alpha=0.9, label='Qubic Orphan Blocks', color='#4682B4', edgecolor='black', linewidth=0.5)  # Steelblue (darker skyblue)
 
     ax2.set_xlabel('Date', fontsize=14, labelpad=LABEL_PAD)
     ax2.set_ylabel('Number of Blocks', fontsize=14, labelpad=LABEL_PAD)
@@ -233,11 +236,17 @@ def analyze_qubic_mining():
 
     handles1, labels1 = ax2.get_legend_handles_labels()
     handles2, labels2 = ax2b.get_legend_handles_labels()
-    # Legend placement: lower left
-    ax2.legend(handles1 + handles2, labels1 + labels2, loc='lower left')
+    # Legend order: match the bar stacking order (bottom to top)
+    # Stack order: Non-Qubic Regular -> Non-Qubic Orphan -> Qubic Regular -> Qubic Orphan
+    # Reverse handles1 to match visual order (bottom to top)
+    handles1_reversed = handles1[::-1]
+    labels1_reversed = labels1[::-1]
+    ax2.legend(handles1_reversed + handles2, labels1_reversed + labels2, loc='lower left')
 
     fig2.tight_layout()
     fig2.savefig('fig/block_production.pdf', dpi=300, bbox_inches='tight')
+    print("Saved fig/block_production.pdf")
+    plt.show()  # Display the plot
     plt.close(fig2)
 
     print("\n=== Analysis Results Summary ===")

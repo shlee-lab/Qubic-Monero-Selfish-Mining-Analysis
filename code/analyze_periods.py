@@ -508,7 +508,8 @@ def create_period_group_visualization(data, periods, status_label):
                               c=coord_counts['count'],  # Color based on frequency
                               cmap='Reds',  # Red color map (darker = more frequent)
                               norm=norm,  # Explicit normalization matching data range exactly
-              alpha=0.7, edgecolors='black', linewidths=0.5)
+                              alpha=0.7, edgecolors='black', linewidths=0.5,
+                              zorder=3)  # Higher zorder so points appear on top of lines
             
             # Add colorbar to show frequency scale
             # Create a ScalarMappable with exact range to ensure colorbar matches exactly
@@ -543,13 +544,17 @@ def create_period_group_visualization(data, periods, status_label):
         # Format y-axis to show only integers
         ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda x, p: f'{int(x)}'))
         
-        # Add ideal selfish mining reference line: y = x - 1
+        # Add ideal selfish mining reference lines: y = x - 1 and y = x - 2
         # Calculate x range: from 1 to min(global_max_x, global_max_y + 1)
         x_line_max = min(global_max_x, global_max_y + 1)
         if x_line_max >= 1:
             x_line = np.arange(1, x_line_max + 1)
-            y_line = x_line - 1
-            ax.plot(x_line, y_line, 'b--', linewidth=2, alpha=0.7, label='Ideal (y=x-1)')
+            # y = x - 1 (blue dashed line)
+            y_line_1 = x_line - 1
+            ax.plot(x_line, y_line_1, 'b--', linewidth=2, alpha=0.7, label='Ideal (y=x-1)', zorder=1)
+            # y = x - 2 (red dotted line)
+            y_line_2 = x_line - 2
+            ax.plot(x_line, y_line_2, 'r:', linewidth=2, alpha=0.7, label='Reference (y=x-2)', zorder=1)
         
         ax.set_xlabel('Qubic Run Length', fontsize=12)
         ax.set_ylabel('Total Orphans in Run', fontsize=12)
@@ -563,7 +568,9 @@ def create_period_group_visualization(data, periods, status_label):
         else:
             total_orphans = period_runs['total_orphans_on_run'].sum() if len(period_runs) > 0 else 0
         
-        ax.set_title(f'Selfish mining period {idx+1} ({total_orphans} cases)\n{period_label}', fontsize=12)
+        # Add alphabet label (a), (b), (c), etc.
+        alphabet_label = chr(ord('a') + idx)
+        ax.set_title(f'({alphabet_label}) Selfish mining period {idx+1} ({total_orphans} cases)\n{period_label}', fontsize=12)
         ax.grid(True, alpha=0.3)
     
     # Hide unused subplots
